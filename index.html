@@ -102,6 +102,7 @@
     var catalogs = {};
     var results = [];
     var playerPath;
+    var mods = {};
     //TODO: get the install path from the log
 
     function getPlayerPath(line){
@@ -111,6 +112,12 @@
         playerPath = arr[1];
     }
 
+    function getMods(line){
+        var rx = /JSON loader -.*: ([\w\s]+).*\.json/g;
+        var arr = rx.exec(line);     
+        if(!arr){ return; }
+        mods[arr[1]] = 1;
+    }
     function catalogDupes(){
         //find mods with catalog dupes
         Object.keys(catalogs).forEach(function (key) {
@@ -127,9 +134,35 @@
 
     }
 
+    var overrides = {};
+    var lastOverrideKey = "0";
+    function findOverrides(line){
+        //mods can override existing game files,the log prints out custom file found, then prints if it overrode any data.
+        //so we need to track across multiple lines since its order dependant.
+        //1 custom file > 1 override
+
+        var rx = /JSON loader - Override data: (.*)/g;
+        var arr = rx.exec(line);     
+        if(arr){
+            //found a override data, should be set on the lastOverrideKey
+                if(!overrides[lastOverrideKey]){
+                    overrides[lastOverrideKey] = arr[1];
+                }
+            
+        }
+
+        var rx = /JSON loader - Found custom file: ([\w\s\\/]+.*\.json)/g;
+        var arr = rx.exec(line);     
+        if(!arr){ return; }        
+        lastOverrideKey = arr[1];
+        //if we found a custom file, check
+
+    }
+
     function processOutput(){
         catalogDupes();
-        
+        console.log(Object.keys(mods));
+        console.log(overrides);
         $('#table_div tbody').empty();
         for (i in results) {
             $('#table_div > tbody:last').append('<tr><td class="word-wrap">'+results[i][0]+'</td><td class="word-wrap">'+results[i][1]+'</td><td class="word-wrap">'+results[i][2]+'</td><td class="word-wrap">'+results[i][3]+'</td></tr>');
@@ -188,7 +221,18 @@
             results.push(row);  
         }
 
+        //type couldnt be resolved
 
+        var trx = /loadMods : Cannot read file (.*\.json) \(Error resolving type specified in JSON '(.*, .*)\. Path '(.*)', line (\d+), position (\d+)./g;
+        var tarr = trx.exec(line);
+        if(tarr){
+            var row = [
+                    `<p class="badge bg-danger">Json error for mod: ${mod}</p> `,
+                    `${line}`,
+                     `In json file <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the type specified: <p class="badge bg-info">${tarr[2]}</p> on line ${tarr[4]}, ${tarr[5]} characters along the line is wrong and could not be resolved. You may have misspelled the type like ItemData or you have put the wrong class or dll name for your custom mod`,
+                     "The types specified in the json files are defined by B&S, you can look at the base game json to check your using the right one or if you have a custom dll, make sure you use the correct naming of <p class=\"badge bg-info\">\"$type\": \"MyNameSpace.MyClass\", MyDllName\"</p>"]
+            results.push(row);  
+        }
         //loadMods : Cannot read file EhGuppy's Jewel Weapons\Effects\Effect_ImbuePurpleFireRagdoll.json (After parsing a value an unexpected character was encountered: ". Path 'modules[0].mainNoHdrColorEnd.g', line 49, position 8.) 
         //https://discord.com/channels/327809947272478720/516724425131819009/833086321537974302
     }
@@ -244,8 +288,9 @@
     function parseRows(line){
 
         getPlayerPath(line);
+        getMods(line);
         readCatalogs(line);
-        
+        findOverrides(line);
         resourceExceptions(line);
         jsonVersionMismatches(line);
         badJson(line);
@@ -255,6 +300,8 @@
         return await new Promise((resolve, reject) => {
             catalogs = {};
             results = [];
+            mods = {};
+            overrides = {};
             var reader = new LineReader(file);
             
             reader.readLines(function(line){
