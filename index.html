@@ -251,7 +251,7 @@
         table.style.visibility = 'visible'; //'hidden'
         $('#table_info tbody').empty();
         $('#table_info > tbody:last').append('<tr><td class="word-wrap">Install Directory</td><td class="word-wrap">'+playerPath+'</td></tr>');
-        $('#table_info > tbody:last').append('<tr><td class="word-wrap">Store</td><td class="word-wrap">'+(steam ? 'Steam' : oculus ? 'Oculus' : 'Pirated?')+'</td></tr>');
+        $('#table_info > tbody:last').append('<tr><td class="word-wrap">Store</td><td class="word-wrap">'+(steam == true ? 'Steam' : oculus == true ? 'Oculus' : 'Pirated?')+'</td></tr>');
         $('#table_info > tbody:last').append('<tr><td class="word-wrap">Game Version</td><td class="word-wrap">'+gameVersion+'</td></tr>');
         $('#table_info > tbody:last').append('<tr><td class="word-wrap">GPU</td><td class="word-wrap">'+gpu+'</td></tr>');
         $('#table_info > tbody:last').append('<tr><td class="word-wrap">VR Headset</td><td class="word-wrap">'+device+'</td></tr>');
