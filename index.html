@@ -40,7 +40,7 @@
   <main class="d-flex justify-content-center px-3">
 
     <div class="text-center">
-        <h1>Wully's Blade and Sorcery U9.2 Log Parser</h1>
+        <h1>Wully's Blade and Sorcery U9.X Log Parser</h1>
         <p class="lead">Upload your log file and we will recommend solutions</p>
         <h3>How to use:</h3>
         <div class="text-start">
@@ -75,8 +75,21 @@
   </main>
 
 
-    <p id="status">Status</p>
-    <table id="table_div" class="table table-sm table-dark table-striped">
+    <div id="spinner" class="spinner-border text-primary" role="status" style="visibility: hidden">        
+    </div>
+    <span id="status" class="sr-only"></span>
+
+    <table id="table_info" class="table table-sm table-dark table-striped" style="visibility: hidden">
+        <thead>
+            <tr>
+                <th scope="col">Field</th>
+                <th scope="col">Value</th>                
+            </tr>
+            </thead>
+        <tbody></tbody>
+        <table>
+
+    <table id="table_issues" class="table table-sm table-dark table-striped" style="visibility: hidden">
     <thead>
         <tr>
             <th scope="col">Issue</th>
@@ -86,6 +99,14 @@
         </tr>
         </thead>
     <tbody></tbody>
+    <table>
+    <table id="table_mods" class="table table-sm table-dark table-striped" style="visibility: hidden">
+        <thead>
+            <tr>
+                <th scope="col">Mod</th>
+            </tr>
+            </thead>
+        <tbody></tbody>
     <table>
         
 
@@ -103,13 +124,51 @@
     var results = [];
     var playerPath;
     var mods = {};
-    //TODO: get the install path from the log
+    var steam = false;
+    var oculus = false;
+    var pirate = false;
+    var gameVersion;
+    var device;
+    var gpu;
+    
+    function getGpu(line){
+        var rx = /Renderer: (.*) \(/g;
+        var arr = rx.exec(line);     
+        if(!arr){ return; }
+        gpu = arr[1];
+    }
+
+    function getDevice(line){
+        var rx = /Device model : (.*)/g;
+        var arr = rx.exec(line);     
+        if(!arr){ return; }
+        device = arr[1];
+    }
+
+    function getVersion(line){
+        var rx = /Game version: (.*) \[/g;
+        var arr = rx.exec(line);     
+        if(!arr){ return; }
+        gameVersion = arr[1];
+    }
 
     function getPlayerPath(line){
-        var rx = /Mono path\[0\] = '(.*\/)Managed'/g;
+        var rx = /Mono path\[0\] = '(.*[\\\/])BladeAndSorcery_Data[\\\/]Managed'/g;
         var arr = rx.exec(line);     
         if(!arr){ return; }
         playerPath = arr[1];
+
+        //check if its steam
+        var steamRx = /[\\\/]steamapps[\\\/]common[\\\/]Blade & Sorcery[\\\/]/g;
+        if(steamRx.exec(line)){
+            steam = true;
+      
+        }
+        var oculusRx = /[\\\/]Software[\\\/]warpfrog-blade-sorcery[\\\/]/g;
+        if(oculusRx.exec(line)){
+            oculus = true;           
+        }
+
     }
 
     function getMods(line){
@@ -118,6 +177,7 @@
         if(!arr){ return; }
         mods[arr[1]] = 1;
     }
+
     function catalogDupes(){
         //find mods with catalog dupes
         Object.keys(catalogs).forEach(function (key) {
@@ -163,15 +223,39 @@
         catalogDupes();
         console.log(Object.keys(mods));
         console.log(overrides);
-        $('#table_div tbody').empty();
-        for (i in results) {
-            $('#table_div > tbody:last').append('<tr><td class="word-wrap">'+results[i][0]+'</td><td class="word-wrap">'+results[i][1]+'</td><td class="word-wrap">'+results[i][2]+'</td><td class="word-wrap">'+results[i][3]+'</td></tr>');
-        }
-
+        populateInfoTable();
+        populateIssueTable();
+        populateModsTable();
     }
 
-    //TODO pirated?
-    //https://discord.com/channels/327809947272478720/516724425131819009/829494493203922965
+    function populateModsTable(){
+        const table = document.getElementById('table_mods');
+        table.style.visibility = 'visible'; //'hidden'
+        $('#table_mods tbody').empty();
+        var modNames = Object.keys(mods);
+        for (i in modNames) {
+            $('#table_mods > tbody:last').append('<tr><td class="word-wrap">'+modNames[i]+'</td></tr>');
+        }
+    }
+    function populateIssueTable(){
+        const table = document.getElementById('table_issues');
+        table.style.visibility = 'visible'; //'hidden'
+        $('#table_issues tbody').empty();
+        for (i in results) {
+            $('#table_issues > tbody:last').append('<tr><td class="word-wrap">'+results[i][0]+'</td><td class="word-wrap">'+results[i][1]+'</td><td class="word-wrap">'+results[i][2]+'</td><td class="word-wrap">'+results[i][3]+'</td></tr>');
+        }
+    }
+
+    function populateInfoTable(){
+        const table = document.getElementById('table_info');
+        table.style.visibility = 'visible'; //'hidden'
+        $('#table_info tbody').empty();
+        $('#table_info > tbody:last').append('<tr><td class="word-wrap">Install Directory</td><td class="word-wrap">'+playerPath+'</td></tr>');
+        $('#table_info > tbody:last').append('<tr><td class="word-wrap">Store</td><td class="word-wrap">'+(steam ? 'Steam' : oculus ? 'Oculus' : 'Pirated?')+'</td></tr>');
+        $('#table_info > tbody:last').append('<tr><td class="word-wrap">Game Version</td><td class="word-wrap">'+gameVersion+'</td></tr>');
+        $('#table_info > tbody:last').append('<tr><td class="word-wrap">GPU</td><td class="word-wrap">'+gpu+'</td></tr>');
+        $('#table_info > tbody:last').append('<tr><td class="word-wrap">VR Headset</td><td class="word-wrap">'+device+'</td></tr>');
+    }
 
     //TODO outdated mods?
     //https://discord.com/channels/327809947272478720/516724425131819009/831305136373760030
@@ -286,7 +370,9 @@
     }
 
     function parseRows(line){
-
+        getGpu(line);
+        getDevice(line);
+        getVersion(line);
         getPlayerPath(line);
         getMods(line);
         readCatalogs(line);
@@ -318,15 +404,17 @@
     const fileSelector = document.getElementById('file');
     const output = document.getElementById('output');
     const status = document.getElementById('status');
-
+    const spinner = document.getElementById('spinner');
     if (window.FileList && window.File && window.FileReader) {
         fileSelector.addEventListener('change', async (event) => {
             const file = event.target.files[0];
-            console.log(file);
+            console.log(file);      
+            spinner.style.visibility = 'visible'; //'hidden'
             status.innerHTML = "Parsing log...";
             const contents = await readFile(file);
             status.innerHTML = "Finished parsing...Processing Output";
             await processOutput();
+            spinner.style.visibility = 'hidden';
             status.innerHTML = "Finished processing output.";
            
         });
