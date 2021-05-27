@@ -310,11 +310,22 @@
         var trx = /loadMods : Cannot read file (.*\.json) \(Error resolving type specified in JSON '(.*, .*)\. Path '(.*)', line (\d+), position (\d+)./g;
         var tarr = trx.exec(line);
         if(tarr){
-            var row = [
+            var row;
+            // check if the type is ItemPhysic, not used anymore, U7/U8 I think
+            if(tarr[2].includes("ThunderRoad.ItemPhysic")){
+                row = [
+                    `<p class="badge bg-warning">Out dated Item mod: ${mod}</p> `,
+                    `${line}`,
+                     `In json file <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the type specified: <p class="badge bg-info">${tarr[2]}</p> on line ${tarr[4]}, ${tarr[5]} characters along the line is wrong and could not be resolved. This is an outdated type and is no longer used from U9+`,
+                     "ItemPhysic is outdated, this mod will not work. <p class=\"badge bg-info\">\"$type\": \"ThunderRoad.ItemData, Assembly-CSharp\"</p> should be used instead."]
+            
+            } else {
+            row = [
                     `<p class="badge bg-danger">Json error for mod: ${mod}</p> `,
                     `${line}`,
                      `In json file <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the type specified: <p class="badge bg-info">${tarr[2]}</p> on line ${tarr[4]}, ${tarr[5]} characters along the line is wrong and could not be resolved. You may have misspelled the type like ItemData or you have put the wrong class or dll name for your custom mod`,
                      "The types specified in the json files are defined by B&S, you can look at the base game json to check your using the right one or if you have a custom dll, make sure you use the correct naming of <p class=\"badge bg-info\">\"$type\": \"MyNameSpace.MyClass\", MyDllName\"</p>"]
+            }
             results.push(row);  
         }
         //loadMods : Cannot read file EhGuppy's Jewel Weapons\Effects\Effect_ImbuePurpleFireRagdoll.json (After parsing a value an unexpected character was encountered: ". Path 'modules[0].mainNoHdrColorEnd.g', line 49, position 8.) 
