@@ -71,12 +71,14 @@
             </p>
         </div>
     </div>
-
+   
+        
+    
   </main>
 
 
-    <div id="spinner" class="spinner-border text-primary" role="status" style="visibility: hidden">        
-    </div>
+
+    <div id="spinner" class="spinner-border text-primary" role="status" style="visibility: hidden"></div>
     <span id="status" class="sr-only"></span>
 
     <table id="table_info" class="table table-sm table-dark table-striped" style="visibility: hidden">
@@ -89,25 +91,28 @@
         <tbody></tbody>
         <table>
 
+    <table id="table_mods" class="table table-sm table-dark table-striped" style="visibility: hidden">
+        <thead>
+            <tr>
+                <th scope="col">Mod</th>
+                <th scope="col">Issue Tags</th>
+            </tr>
+            </thead>
+        <tbody></tbody>
+    <table>
+    
     <table id="table_issues" class="table table-sm table-dark table-striped" style="visibility: hidden">
     <thead>
         <tr>
             <th scope="col">Issue</th>
-            <th scope="col">What was found</th>
+            <!--<th scope="col">What was found</th>-->
             <th scope="col">Recommendation</th>
             <th scope="col">Comment</th>
         </tr>
         </thead>
     <tbody></tbody>
     <table>
-    <table id="table_mods" class="table table-sm table-dark table-striped" style="visibility: hidden">
-        <thead>
-            <tr>
-                <th scope="col">Mod</th>
-            </tr>
-            </thead>
-        <tbody></tbody>
-    <table>
+    
         
 
 
@@ -120,6 +125,8 @@
     
   </body>
   <script>
+
+    console.log( document.cookie);
     var catalogs = {};
     var results = [];
     var playerPath;
@@ -131,6 +138,12 @@
     var device;
     var gpu;
     
+    function addTag(mod, tag){
+        mods[mod] = (mods[mod] || {});
+        mods[mod][tag] = (mods[mod][tag] || 1) + 1;
+    }
+    
+
     function getGpu(line){
         var rx = /Renderer: (.*) \(/g;
         var arr = rx.exec(line);     
@@ -175,7 +188,7 @@
         var rx = /JSON loader -.*: ([\w\s]+).*\.json/g;
         var arr = rx.exec(line);     
         if(!arr){ return; }
-        mods[arr[1]] = 1;
+        mods[arr[1]] = {};
     }
 
     function catalogDupes(){
@@ -183,10 +196,11 @@
         Object.keys(catalogs).forEach(function (key) {
             if (catalogs[key].length > 1) {
                 catalogs[key];
+                addTag(key,"Catalog Json Duplicates");
                 var row = [
                     `<p class="badge bg-danger">Catalog Duplicate for ${key}</p> `,
                      catalogs[key],
-                     `Delete the oldest catalog files <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${key}\\</p>`,
+                     `Delete the oldest catalog files <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${key}\\</p>`,
                      "This normally happens when you install a mod incorrectly by copying over files. You should delete the old mod first then copy over the new version."]
                results.push(row);         
             }         
@@ -221,7 +235,7 @@
 
     function processOutput(){
         catalogDupes();
-        console.log(Object.keys(mods));
+        console.log(mods);
         console.log(overrides);
         populateInfoTable();
         populateIssueTable();
@@ -234,7 +248,14 @@
         $('#table_mods tbody').empty();
         var modNames = Object.keys(mods);
         for (i in modNames) {
-            $('#table_mods > tbody:last').append('<tr><td class="word-wrap">'+modNames[i]+'</td></tr>');
+            var mod = modNames[i];
+            var tags = "";
+            for(j in mods[mod]){
+                var count = mods[mod][j];
+                tags += `<p class="badge bg-info text-wrap text-dark">${j}<span class="badge rounded-pill bg-dark">${count}</span></p> `
+            }
+
+            $('#table_mods > tbody:last').append('<tr><td class="text-center word-wrap">'+mod+'</td><td class="text-center word-wrap">'+tags+'</td></tr>');
         }
     }
     function populateIssueTable(){
@@ -242,7 +263,12 @@
         table.style.visibility = 'visible'; //'hidden'
         $('#table_issues tbody').empty();
         for (i in results) {
-            $('#table_issues > tbody:last').append('<tr><td class="word-wrap">'+results[i][0]+'</td><td class="word-wrap">'+results[i][1]+'</td><td class="word-wrap">'+results[i][2]+'</td><td class="word-wrap">'+results[i][3]+'</td></tr>');
+            var issue = results[i][0];
+            var found = results[i][1];
+            var recommendation = results[i][2];
+            var comment = results[i][3];
+            //$('#table_issues > tbody:last').append('<tr><td class="word-wrap">'+issue+'</td><td class="word-wrap">'+found+'</td><td class="word-wrap">'+recommendation+'</td><td class="word-wrap">'+comment+'</td></tr>');
+            $('#table_issues > tbody:last').append('<tr><td class="word-wrap">'+issue+'</td><td class="word-wrap">'+recommendation+'</td><td class="word-wrap">'+comment+'</td></tr>');
         }
     }
 
@@ -255,6 +281,7 @@
         $('#table_info > tbody:last').append('<tr><td class="word-wrap">Game Version</td><td class="word-wrap">'+gameVersion+'</td></tr>');
         $('#table_info > tbody:last').append('<tr><td class="word-wrap">GPU</td><td class="word-wrap">'+gpu+'</td></tr>');
         $('#table_info > tbody:last').append('<tr><td class="word-wrap">VR Headset</td><td class="word-wrap">'+device+'</td></tr>');
+        $('#table_info > tbody:last').append('<tr><td class="word-wrap">Number of mods</td><td class="word-wrap">'+Object.keys(mods).length+'</td></tr>');
     }
 
     //TODO outdated mods?
@@ -268,16 +295,20 @@
         if(!arr) {return;}
         var path = arr[1].split(/[\/\\]/);
         var mod = path[0];
+        
+        var found = false;
         //multiple types of json issues, like:
         
         // unexpected character after parsing
         var uprx = /loadMods : Cannot read file (.*\.json) \(After parsing a value an unexpected character was encountered: (.*)\. Path '(.*)', line (\d+), position (\d+)./g;
         var uparr = uprx.exec(line);
         if(uparr){
+            found = true;
+            addTag(mod,"Json syntax error");
             var row = [
                     `<p class="badge bg-danger">Json error for mod: ${mod}</p> `,
                     `${line}`,
-                     `In json file <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${uparr[1]}</p> there is an unexpected character: <p class="badge bg-info">${uparr[2]}</p> on line ${uparr[4]}, ${uparr[5]} characters along the line. It may need to be removed, or you have your json syntax wrong.`,
+                     `In json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${uparr[1]}</p> there is an unexpected character: <p class="badge bg-info text-wrap text-dark">${uparr[2]}</p> on line ${uparr[4]}, ${uparr[5]} characters along the line. It may need to be removed, or you have your json syntax wrong.`,
                      "Json follows a strict syntax, paste the json files content into : <a href=\"https://jsonlint.com/\">Here<a> to give you more help."]
             results.push(row);  
         }
@@ -286,10 +317,12 @@
         var uvrx = /loadMods : Cannot read file (.*\.json) \(Unexpected character encountered while parsing value: (.*)\. Path '(.*)', line (\d+), position (\d+)./g;
         var uvarr = uvrx.exec(line);
         if(uvarr){
+            found = true;
+            addTag(mod,"Json syntax error");
             var row = [
                     `<p class="badge bg-danger">Json error for mod: ${mod}</p> `,
                     `${line}`,
-                     `In json file <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${uvarr[1]}</p> there is an unexpected character: <p class="badge bg-info">${uvarr[2]}</p> on line ${uvarr[4]}, ${uvarr[5]} characters along the line. It may need to be removed, or you have your json syntax wrong.`,
+                     `In json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${uvarr[1]}</p> there is an unexpected character: <p class="badge bg-info text-wrap text-dark">${uvarr[2]}</p> on line ${uvarr[4]}, ${uvarr[5]} characters along the line. It may need to be removed, or you have your json syntax wrong.`,
                      "Json follows a strict syntax, paste the json files content into : <a href=\"https://jsonlint.com/\">Here<a> to give you more help."]
             results.push(row);  
         }
@@ -297,11 +330,13 @@
         var trx = /loadMods : Cannot read file (.*\.json) \(Type specified in JSON '(.*, .*), Version.*' is not compatible with '(.*), Assembly.*\. Path '(.*)', line (\d+), position (\d+)./g;
         var tarr = trx.exec(line);
         if(tarr){
+            found = true;
+            addTag(mod,"Json wrong class or dll name");
             var row = [
                     `<p class="badge bg-danger">Json error for mod: ${mod}</p> `,
                     `${line}`,
-                     `In json file <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the <p class="badge bg-info">${tarr[4]}</p> specified: <p class="badge bg-info">${tarr[2]}</p> on line ${tarr[5]}, ${tarr[6]} characters along the line is wrong and is not compatible with <p class="badge bg-info">${tarr[3]}</p>. You may have misspelled the type like ItemData or you have put the wrong class or dll name for your custom mod`,
-                     "The types specified in the json files are defined by B&S, you can look at the base game json to check your using the right one or if you have a custom dll, make sure you use the correct naming of <p class=\"badge bg-info\">\"$type\": \"MyNameSpace.MyClass\", MyDllName\"</p>"]
+                     `In json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the <p class="badge bg-info text-wrap text-dark">${tarr[4]}</p> specified: <p class="badge bg-info text-wrap text-dark">${tarr[2]}</p> on line ${tarr[5]}, ${tarr[6]} characters along the line is wrong and is not compatible with <p class="badge bg-info text-wrap text-dark">${tarr[3]}</p>. You may have misspelled the type like ItemData or you have put the wrong class or dll name for your custom mod`,
+                     "The types specified in the json files are defined by B&S, you can look at the base game json to check your using the right one or if you have a custom dll, make sure you use the correct naming of <p class=\"badge bg-info text-wrap text-dark\">\"$type\": \"MyNameSpace.MyClass\", MyDllName\"</p>"]
             results.push(row);  
         }
 
@@ -310,24 +345,69 @@
         var trx = /loadMods : Cannot read file (.*\.json) \(Error resolving type specified in JSON '(.*, .*)\. Path '(.*)', line (\d+), position (\d+)./g;
         var tarr = trx.exec(line);
         if(tarr){
+            found = true;
             var row;
             // check if the type is ItemPhysic, not used anymore, U7/U8 I think
             if(tarr[2].includes("ThunderRoad.ItemPhysic")){
+                addTag(mod,"Using ThunderRoad.ItemPhysic");
+                addTag(mod,"Outdated Mod");
                 row = [
-                    `<p class="badge bg-warning">Out dated Item mod: ${mod}</p> `,
+                    `<p class="badge bg-warning text-wrap text-dark">Out dated Item mod: ${mod}</p> `,
                     `${line}`,
-                     `In json file <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the type specified: <p class="badge bg-info">${tarr[2]}</p> on line ${tarr[4]}, ${tarr[5]} characters along the line is wrong and could not be resolved. This is an outdated type and is no longer used from U9+`,
-                     "ItemPhysic is outdated, this mod will not work. <p class=\"badge bg-info\">\"$type\": \"ThunderRoad.ItemData, Assembly-CSharp\"</p> should be used instead."]
+                     `In json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the type specified: <p class="badge bg-info text-wrap text-dark">${tarr[2]}</p> on line ${tarr[4]}, ${tarr[5]} characters along the line is wrong and could not be resolved. This is an outdated type and is no longer used from U9+`,
+                     "ItemPhysic is outdated, this mod will not work. <p class=\"badge bg-info text-wrap text-dark\">\"$type\": \"ThunderRoad.ItemData, Assembly-CSharp\"</p> should be used instead."]
             
             } else {
-            row = [
-                    `<p class="badge bg-danger">Json error for mod: ${mod}</p> `,
+                //very old
+            if(tarr[2].includes("BS.")){
+                addTag(mod,"Using BS.xx namespace");
+                addTag(mod,"Outdated Mod");
+                row = [
+                    `<p class="badge bg-warning text-wrap text-dark">Out dated Item mod: ${mod}</p> `,
                     `${line}`,
-                     `In json file <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the type specified: <p class="badge bg-info">${tarr[2]}</p> on line ${tarr[4]}, ${tarr[5]} characters along the line is wrong and could not be resolved. You may have misspelled the type like ItemData or you have put the wrong class or dll name for your custom mod`,
-                     "The types specified in the json files are defined by B&S, you can look at the base game json to check your using the right one or if you have a custom dll, make sure you use the correct naming of <p class=\"badge bg-info\">\"$type\": \"MyNameSpace.MyClass\", MyDllName\"</p>"]
+                     `In json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the type specified: <p class="badge bg-info text-wrap text-dark">${tarr[2]}</p> on line ${tarr[4]}, ${tarr[5]} characters along the line is wrong and could not be resolved. This is an outdated namespace and is no longer used.`,
+                     "BS namespace is outdated, this mod will not work. <p class=\"badge bg-info text-wrap text-dark\">\"$type\": \"ThunderRoad.XXXX, Assembly-CSharp\"</p> should be used instead."]
+            
+            } else {
+                addTag(mod,"Json type error");
+                row = [
+                        `<p class="badge bg-danger">Json error for mod: ${mod}</p> `,
+                        `${line}`,
+                        `In json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the type specified: <p class="badge bg-info text-wrap text-dark">${tarr[2]}</p> on line ${tarr[4]}, ${tarr[5]} characters along the line is wrong and could not be resolved. You may have misspelled the type like ItemData or you have put the wrong class or dll name for your custom mod`,
+                        "The types specified in the json files are defined by B&S, you can look at the base game json to check your using the right one or if you have a custom dll, make sure you use the correct naming of <p class=\"badge bg-info text-wrap text-dark\">\"$type\": \"MyNameSpace.MyClass\", MyDllName\"</p>"]
+                }
             }
             results.push(row);  
         }
+
+        var trx = /loadMods : Cannot read file (.*\.json) \((Input.*)\. Path '(.*)', line (\d+), position (\d+)./g;
+        var tarr = trx.exec(line);
+        if(tarr){
+            found = true;
+            addTag(mod,"Json field type error");
+            var row = [
+                    `<p class="badge bg-danger">Json error for mod: ${mod}</p> `,
+                    `${line}`,
+                     `In json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> has an field type error <p class="badge bg-info text-wrap text-dark">${tarr[2]}</p> on field <p class="badge bg-info text-wrap text-dark">${tarr[3]}</p>, line ${tarr[4]}, ${tarr[5]} characters along the line. You may have the wrong data type for the field or invalid characters.`,
+                     "B&S deserialises the fields to typed fields, so values must match their type, ie Ints should be '1234', whereas floats are '1234.0'"]
+            results.push(row);  
+        }
+        if(found == false){
+            //uncaught error
+            var trx = /loadMods : Cannot read file (.*\.json) \((.*)\./g;
+            var tarr = trx.exec(line);
+            if(tarr){
+                found = true;
+                addTag(mod,"Unknown Json error");
+                var row = [
+                        `<p class="badge bg-danger">Json error for mod: ${mod}</p> `,
+                        `${line}`,
+                        `In json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> has an unexpected error <p class="badge bg-info text-wrap text-dark">${tarr[2]}</p>`,
+                        "There is no additional help for this error, please reach out to Wully to get this updated and reach out to #modding-help on the discord"]
+                results.push(row);  
+            }
+        }
+
         //loadMods : Cannot read file EhGuppy's Jewel Weapons\Effects\Effect_ImbuePurpleFireRagdoll.json (After parsing a value an unexpected character was encountered: ". Path 'modules[0].mainNoHdrColorEnd.g', line 49, position 8.) 
         //https://discord.com/channels/327809947272478720/516724425131819009/833086321537974302
     }
@@ -337,10 +417,11 @@
         var rx = /JSON loader - Version mismatch \(file ([\d]*), current ([\d]+)\).*:(.*)\\(.*)/g;
         var arr = rx.exec(line);
         if(!arr){ return; }
+        addTag(arr[3],"Json version mismatch");
         var row = [
                     `<p class="badge bg-danger">Json file version mismatch for mod: ${arr[3]}</p> `,
                     `${arr[0]}`,
-                     `Version in json file <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${arr[3]}\\${arr[4]}</p> is ${arr[1]}, change it to ${arr[2]}`,
+                     `Version in json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${arr[3]}\\${arr[4]}</p> is ${arr[1]}, change it to ${arr[2]}`,
                      "The json file has the incorrect version identifier. These may change with game updates and old mods may then have an old version"]
         results.push(row);  
     }
@@ -359,10 +440,11 @@
         }
         var error = arr[1];
         var where = arr[2];
+        addTag(key,"Resource Exception");
         var row = [
                     `<p class="badge bg-danger">Exception for ${mod}</p> `,
                     `${error} - ${where}`,
-                     `Try removing the mod at <p class="badge bg-info">${playerPath}StreamingAssets\\Mods\\${mod}\\</p>`,
+                     `Try removing the mod at <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${mod}\\</p>`,
                      "The mod may have been built incorrectly, or has been installed incorrectly or is for an old version of B&S"]
         results.push(row);  
     }
