@@ -139,11 +139,8 @@
     var gpu;
     
     function addTag(mod, tag){
-        console.log(`Adding tag: '${tag}' to '${mod}'`);
         mods[mod] = mods[mod] || {};
-        console.log(mods[mod]);
         mods[mod][tag] = (mods[mod][tag] || 0) + 1;
-        console.log(mods[mod][tag]);
     }
     
 
