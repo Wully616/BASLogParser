@@ -95,7 +95,7 @@
         <thead>
             <tr>
                 <th scope="col">Mod</th>
-                <th scope="col">Issue Tags</th>
+                <th scope="col">Tags</th>
             </tr>
             </thead>
         <tbody></tbody>
@@ -139,8 +139,11 @@
     var gpu;
     
     function addTag(mod, tag){
-        mods[mod] = (mods[mod] || {});
-        mods[mod][tag] = (mods[mod][tag] || 1) + 1;
+        console.log(`Adding tag: '${tag}' to '${mod}'`);
+        mods[mod] = mods[mod] || {};
+        console.log(mods[mod]);
+        mods[mod][tag] = (mods[mod][tag] || 0) + 1;
+        console.log(mods[mod][tag]);
     }
     
 
@@ -188,7 +191,14 @@
         var rx = /JSON loader -.*: ([\w\s]+).*\.json/g;
         var arr = rx.exec(line);     
         if(!arr){ return; }
-        mods[arr[1]] = {};
+        addTag(arr[1],"custom json loaded");        
+    }
+
+    function getModAssemblies(line){
+        var rx = /Loading plugin assembly.*Mods\\([\w\s]+)\\(.*\.dll)/g;
+        var arr = rx.exec(line);     
+        if(!arr){ return; }
+        addTag(arr[1],"custom dll loaded");        
     }
 
     function catalogDupes(){
@@ -252,7 +262,7 @@
             var tags = "";
             for(j in mods[mod]){
                 var count = mods[mod][j];
-                tags += `<p class="badge bg-info text-wrap text-dark">${j}<span class="badge rounded-pill bg-dark">${count}</span></p> `
+                tags += `<p class="badge bg-info text-wrap text-dark">${j} <span class="badge rounded-pill bg-dark">${count}</span></p> `
             }
 
             $('#table_mods > tbody:last').append('<tr><td class="text-center word-wrap">'+mod+'</td><td class="text-center word-wrap">'+tags+'</td></tr>');
@@ -352,7 +362,7 @@
                 addTag(mod,"Using ThunderRoad.ItemPhysic");
                 addTag(mod,"Outdated Mod");
                 row = [
-                    `<p class="badge bg-warning text-wrap text-dark">Out dated Item mod: ${mod}</p> `,
+                    `<p class="badge bg-warning text-wrap text-dark">Outdated Item mod: ${mod}</p> `,
                     `${line}`,
                      `In json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the type specified: <p class="badge bg-info text-wrap text-dark">${tarr[2]}</p> on line ${tarr[4]}, ${tarr[5]} characters along the line is wrong and could not be resolved. This is an outdated type and is no longer used from U9+`,
                      "ItemPhysic is outdated, this mod will not work. <p class=\"badge bg-info text-wrap text-dark\">\"$type\": \"ThunderRoad.ItemData, Assembly-CSharp\"</p> should be used instead."]
@@ -363,7 +373,7 @@
                 addTag(mod,"Using BS.xx namespace");
                 addTag(mod,"Outdated Mod");
                 row = [
-                    `<p class="badge bg-warning text-wrap text-dark">Out dated Item mod: ${mod}</p> `,
+                    `<p class="badge bg-warning text-wrap text-dark">Outdated Item mod: ${mod}</p> `,
                     `${line}`,
                      `In json file <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${tarr[1]}</p> the type specified: <p class="badge bg-info text-wrap text-dark">${tarr[2]}</p> on line ${tarr[4]}, ${tarr[5]} characters along the line is wrong and could not be resolved. This is an outdated namespace and is no longer used.`,
                      "BS namespace is outdated, this mod will not work. <p class=\"badge bg-info text-wrap text-dark\">\"$type\": \"ThunderRoad.XXXX, Assembly-CSharp\"</p> should be used instead."]
@@ -440,19 +450,33 @@
         }
         var error = arr[1];
         var where = arr[2];
-        addTag(key,"Resource Exception");
+        addTag(mod,"Resource Exception");
         var row = [
-                    `<p class="badge bg-danger">Exception for ${mod}</p> `,
-                    `${error} - ${where}`,
+                    `<p class="badge bg-danger">Exception for ${mod} - ${error} - ${where}</p> `,
+                    ``,
                      `Try removing the mod at <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\${mod}\\</p>`,
-                     "The mod may have been built incorrectly, or has been installed incorrectly or is for an old version of B&S"]
+                     `${line}`]
         results.push(row);  
     }
+
+
+    function crcError(line){
+        //crc mismatches
+        var rx = /CRC Mismatch.*\. Will not load AssetBundle '(.*)'/g;
+        var arr = rx.exec(line);
+        if(!arr){return;}
+        var bundle = arr[1];
+        var row = [
+                    `<p class="badge bg-warning text-dark">CRC Exception for a mods asset bundle - ${bundle}</p> `,
+                    ``,
+                     `Look for a mod folder in <p class="badge bg-info text-wrap text-dark">${playerPath}StreamingAssets\\Mods\\</p> which has the file ${bundle} and remove it and redownload the mod`,
+                     `CRC Mismatch means the file has been corrupted or partially downloaded or extracted incorrectly. Please find and remove the mod containing ${bundle} and redownload it`]
+        results.push(row);  
+    }
+
     function readCatalogs(line){
         var rx = /Successfully loaded content catalog at path.*BladeAndSorcery_Data\/StreamingAssets\\Mods\\(.*)\\(catalog_.*.json)/g;
         var arr = rx.exec(line);
-        //mod name is key
-        //if we dont have it already, create list
         if(!arr){ return; }
 
         if(!catalogs[arr[1]]){
@@ -470,9 +494,11 @@
         getMods(line);
         readCatalogs(line);
         findOverrides(line);
-        resourceExceptions(line);
+        //resourceExceptions(line);
         jsonVersionMismatches(line);
+        crcError(line);
         badJson(line);
+        getModAssemblies(line);
 
     }
     async function readFile(file) {
